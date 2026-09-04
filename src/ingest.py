@@ -27,6 +27,15 @@ def clean_text(text):
     return text
 
 
+def extract_metadata(file_path):
+    category = file_path.stem
+
+    return {
+        "source": file_path.name,
+        "category": category,
+    }
+
+
 def load_documents():
     documents = []
 
@@ -39,9 +48,11 @@ def load_documents():
 
         cleaned_text = clean_text(raw_text)
 
+        metadata = extract_metadata(file_path)
+
         documents.append({
-            "source": file_path.name,
-            "text": cleaned_text
+            "text": cleaned_text,
+            "metadata": metadata
         })
 
     return documents
@@ -54,5 +65,5 @@ if __name__ == "__main__":
 
     for document in documents:
         print("=" * 50)
-        print(f"Source: {document['source']}")
-        print(document["text"][:500])
+        print(f"Metadata: {document['metadata']}")
+        print(document["text"][:300])
