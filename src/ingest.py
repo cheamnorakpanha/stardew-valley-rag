@@ -16,13 +16,9 @@ EXCLUDED_FILES = {
     "source_policy.md",
 }
 
-# Target chunk size
 CHUNK_SIZE = 450
-
-# Approximately 15% overlap
 CHUNK_OVERLAP = 70
 
-# Tokenizer used to measure chunk size
 TOKENIZER = tiktoken.get_encoding("cl100k_base")
 
 
@@ -84,7 +80,7 @@ def count_tokens(text):
 
 
 # ============================================================
-# Step 5: Recursive Token-Based Splitting
+# Token-Based Splitting
 # ============================================================
 
 def recursive_split(
@@ -96,15 +92,15 @@ def recursive_split(
     Split large text into token-based chunks.
 
     Target:
-        ~450 tokens per chunk
+        approximately 450 tokens
 
     Overlap:
-        ~70 tokens between chunks
+        70 tokens
     """
 
     tokens = TOKENIZER.encode(text)
 
-    # If the text already fits, don't split it
+    # Section already fits inside target size
     if len(tokens) <= chunk_size:
         return [text]
 
@@ -128,7 +124,7 @@ def recursive_split(
         if chunk_text:
             chunks.append(chunk_text)
 
-        # Stop if we reached the end
+        # Stop when we reach the end
         if end >= len(tokens):
             break
 
@@ -139,22 +135,20 @@ def recursive_split(
 
 
 # ============================================================
-# Markdown-Aware Chunking
+# Step 5: Markdown-Aware Chunking
 # ============================================================
 
 def split_into_chunks(text):
     """
     Split Markdown documents using a hybrid strategy.
 
-    Strategy:
-
-    1. Split the document using Markdown ## and ### headings.
+    1. Split using Markdown ## and ### headings.
     2. Keep small sections intact.
-    3. Recursively split large sections.
-    4. Preserve the section title as metadata.
+    3. Split large sections into token-based chunks.
+    4. Preserve the section heading in every chunk.
     """
 
-    # Split whenever a ## or ### heading begins.
+    # Split on ## and ### headings
     sections = re.split(
         r"\n(?=#{2,3} )",
         text
@@ -170,7 +164,7 @@ def split_into_chunks(text):
             continue
 
         # ----------------------------------------------------
-        # Skip the document-level title
+        # Skip document-level title
         # ----------------------------------------------------
 
         if (
@@ -180,7 +174,7 @@ def split_into_chunks(text):
             continue
 
         # ----------------------------------------------------
-        # Extract section title
+        # Extract heading
         # ----------------------------------------------------
 
         lines = section.splitlines()
@@ -221,19 +215,43 @@ def split_into_chunks(text):
 
         else:
 
-            sub_chunks = recursive_split(
-                section,
-                chunk_size=CHUNK_SIZE,
+            # Remove the heading before splitting the body
+            body = "\n".join(
+                lines[1:]
+            ).strip()
+
+            # Reserve tokens for the heading
+            heading_tokens = count_tokens(
+                lines[0]
+            )
+
+            available_size = (
+                CHUNK_SIZE - heading_tokens
+            )
+
+            # Safety check
+            if available_size <= 0:
+                available_size = CHUNK_SIZE
+
+            body_chunks = recursive_split(
+                body,
+                chunk_size=available_size,
                 overlap=CHUNK_OVERLAP
             )
 
-            for i, sub_chunk in enumerate(
-                sub_chunks,
+            # Add the heading back to every chunk
+            for i, body_chunk in enumerate(
+                body_chunks,
                 start=1
             ):
 
+                chunk_text = (
+                    f"{lines[0]}\n\n"
+                    f"{body_chunk}"
+                )
+
                 chunks.append({
-                    "text": sub_chunk,
+                    "text": chunk_text,
                     "section": title,
                     "chunk_part": i,
                 })
@@ -289,6 +307,9 @@ def create_chunks(documents):
     """
     Split every document into chunks
     and attach metadata to each chunk.
+
+    Contextual information is added to the chunk text
+    so that it is also included in the embedding.
     """
 
     chunks = []
@@ -311,7 +332,7 @@ def create_chunks(documents):
                 section["section"]
             )
 
-            # Add chunk part if the section
+            # Add chunk part when a section
             # was split into multiple chunks
             if "chunk_part" in section:
 
@@ -319,8 +340,22 @@ def create_chunks(documents):
                     section["chunk_part"]
                 )
 
+            # ------------------------------------------------
+            # Add contextual information
+            # ------------------------------------------------
+            #
+            # This text will be embedded.
+            # Including the source and section gives
+            # the embedding model more context.
+            #
+            contextualized_text = (
+                f"Source: {metadata['source']}\n"
+                f"Section: {metadata['section']}\n\n"
+                f"{section['text']}"
+            )
+
             chunks.append({
-                "text": section["text"],
+                "text": contextualized_text,
                 "metadata": metadata,
             })
 
@@ -333,23 +368,13 @@ def create_chunks(documents):
 
 if __name__ == "__main__":
 
-    # --------------------------------------------------------
     # Step 2: Load documents
-    # --------------------------------------------------------
-
     documents = load_documents()
 
-    # --------------------------------------------------------
     # Step 5: Create chunks
-    # --------------------------------------------------------
-
     chunks = create_chunks(
         documents
     )
-
-    # --------------------------------------------------------
-    # Display summary
-    # --------------------------------------------------------
 
     print("=" * 60)
     print("STARDEW VALLEY RAG - INGESTION")
@@ -370,10 +395,6 @@ if __name__ == "__main__":
     print(
         f"Chunk overlap    : {CHUNK_OVERLAP} tokens"
     )
-
-    # --------------------------------------------------------
-    # Display sample chunks
-    # --------------------------------------------------------
 
     print("\nSample chunks:")
     print("=" * 60)

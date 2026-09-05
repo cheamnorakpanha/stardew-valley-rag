@@ -1,21 +1,36 @@
 import chromadb
 
 from embedding import load_embedding_model, create_embeddings
+from llm import generate_response
 
+
+# ============================================================
+# Configuration
+# ============================================================
 
 CHROMA_PATH = "chroma_db"
 COLLECTION_NAME = "stardew_valley"
 
+N_RESULTS = 10
+
+
+# ============================================================
+# Step 8: Receive User Question
+# ============================================================
 
 def get_user_question():
     """
-    Receive a question from the user.
+    Get a question from the user.
     """
 
     question = input("You: ")
 
     return question
 
+
+# ============================================================
+# Step 9: Create Question Embedding
+# ============================================================
 
 def create_question_embedding(model, question):
     """
@@ -29,6 +44,10 @@ def create_question_embedding(model, question):
 
     return embedding[0]
 
+
+# ============================================================
+# Connect to ChromaDB
+# ============================================================
 
 def get_collection():
     """
@@ -46,29 +65,118 @@ def get_collection():
     return collection
 
 
-def retrieve_chunks(collection, question_embedding, n_results=3):
+# ============================================================
+# Step 10: Retrieve Relevant Chunks
+# ============================================================
+
+def retrieve_chunks(
+    collection,
+    question_embedding,
+    n_results=N_RESULTS
+):
     """
     Retrieve the most relevant chunks from ChromaDB.
     """
 
     results = collection.query(
-        query_embeddings=[question_embedding.tolist()],
-        n_results=n_results
+        query_embeddings=[
+            question_embedding.tolist()
+        ],
+        n_results=n_results,
+        include=[
+            "documents",
+            "metadatas",
+            "distances",
+        ],
     )
 
     return results
 
 
-if __name__ == "__main__":
+# ============================================================
+# Step 11: Build Augmented Prompt
+# ============================================================
 
-    # Step 8
+def build_augmented_prompt(question, results):
+    """
+    Combine the user's question with the
+    retrieved chunks to create an augmented prompt.
+    """
+
+    retrieved_documents = results["documents"][0]
+
+    context = "\n\n".join(
+        retrieved_documents
+    )
+
+    prompt = f"""
+    You are a Stardew Valley assistant.
+
+    Answer the user's question using only the
+    provided context.
+
+    Give a helpful and moderately detailed answer.
+    Explain the important points clearly and use
+    bullet points when appropriate.
+
+    Do not add information that is not supported
+    by the provided context.
+
+    If the context does not contain enough information
+    to answer the question, say that the information
+    is not available in the provided context.
+
+    Context:
+    --------------------
+    {context}
+    --------------------
+
+    Question:
+    {question}
+
+    Answer:
+    """.strip()
+
+    return prompt
+
+
+# ============================================================
+# Step 13: Generate Response
+# ============================================================
+
+def generate_rag_response(question, results):
+    """
+    Build the augmented prompt and send it
+    to the LLM.
+    """
+
+    prompt = build_augmented_prompt(
+        question,
+        results
+    )
+
+    response = generate_response(
+        prompt
+    )
+
+    return response
+
+
+# ============================================================
+# Main CLI
+# ============================================================
+
+def main():
+
+    print("=" * 60)
+    print("🌾 Stardew Valley Assistant")
+    print("=" * 60)
+
+    # Step 8: Receive question
     question = get_user_question()
 
-    print("\nQuestion received:")
-    print(question)
-
-    # Step 9
-    print("\nLoading embedding model...")
+    # Step 9: Create question embedding
+    print("\n🔎 Searching knowledge base...")
 
     model = load_embedding_model()
 
@@ -77,28 +185,36 @@ if __name__ == "__main__":
         question
     )
 
-    print("Question embedding created!")
-
-    # Step 10
+    # Connect to ChromaDB
     collection = get_collection()
 
-    print("\nSearching ChromaDB...")
-
+    # Step 10: Retrieve relevant chunks
     results = retrieve_chunks(
         collection,
         question_embedding,
-        n_results=10
+        n_results=N_RESULTS
     )
 
-    print("\nRetrieved chunks:")
-    print("=" * 60)
+    # Step 11 + Step 13:
+    # Build augmented prompt and generate response
+    print("🤖 Generating answer...")
 
-    for i, document in enumerate(results["documents"][0]):
+    response = generate_rag_response(
+        question,
+        results
+    )
 
-        print(f"\nResult {i + 1}")
-        print("-" * 60)
+    # Display final answer
+    print("\nAssistant:")
+    print("-" * 60)
+    print(response)
 
-        print(document)
+    print("\n" + "=" * 60)
 
-        print("\nMetadata:")
-        print(results["metadatas"][0][i])
+
+# ============================================================
+# Run Application
+# ============================================================
+
+if __name__ == "__main__":
+    main()
