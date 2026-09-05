@@ -1,4 +1,5 @@
 chromadb
+ollama
 python-dotenv
 sentence-transformers
 tiktoken
