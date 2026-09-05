@@ -8,6 +8,8 @@ from ollama import chat
 
 MODEL_NAME = "qwen3.5:4b"
 
+MAX_OUTPUT_TOKENS = 1500
+
 
 # ============================================================
 # Step 12: Connect to LLM
@@ -27,6 +29,10 @@ def generate_response(prompt):
                 "content": prompt,
             }
         ],
+        think=False,
+        options={
+            "num_predict": MAX_OUTPUT_TOKENS,
+        },
     )
 
     return response["message"]["content"]
@@ -40,6 +46,10 @@ if __name__ == "__main__":
 
     test_prompt = """
 You are a Stardew Valley assistant.
+
+Give a helpful and moderately detailed answer.
+Explain the important points clearly and use
+bullet points when appropriate.
 
 Answer this question:
 

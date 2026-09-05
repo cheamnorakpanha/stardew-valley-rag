@@ -32,10 +32,7 @@ def get_user_question():
 # Step 9: Create Question Embedding
 # ============================================================
 
-def create_question_embedding(
-    model,
-    question
-):
+def create_question_embedding(model, question):
     """
     Convert the user's question into an embedding.
     """
@@ -100,44 +97,45 @@ def retrieve_chunks(
 # Step 11: Build Augmented Prompt
 # ============================================================
 
-def build_augmented_prompt(
-    question,
-    results
-):
+def build_augmented_prompt(question, results):
     """
     Combine the user's question with the
     retrieved chunks to create an augmented prompt.
     """
 
-    retrieved_documents = results[
-        "documents"
-    ][0]
+    retrieved_documents = results["documents"][0]
 
-    # Combine retrieved chunks
     context = "\n\n".join(
         retrieved_documents
     )
 
     prompt = f"""
-You are a Stardew Valley assistant.
+    You are a Stardew Valley assistant.
 
-Answer the user's question using only the
-provided context.
+    Answer the user's question using only the
+    provided context.
 
-If the context does not contain enough information
-to answer the question, say that the information
-is not available in the provided context.
+    Give a helpful and moderately detailed answer.
+    Explain the important points clearly and use
+    bullet points when appropriate.
 
-Context:
---------------------
-{context}
---------------------
+    Do not add information that is not supported
+    by the provided context.
 
-Question:
-{question}
+    If the context does not contain enough information
+    to answer the question, say that the information
+    is not available in the provided context.
 
-Answer:
-""".strip()
+    Context:
+    --------------------
+    {context}
+    --------------------
+
+    Question:
+    {question}
+
+    Answer:
+    """.strip()
 
     return prompt
 
@@ -146,13 +144,10 @@ Answer:
 # Step 13: Generate Response
 # ============================================================
 
-def generate_rag_response(
-    question,
-    results
-):
+def generate_rag_response(question, results):
     """
     Build the augmented prompt and send it
-    to the LLM to generate the final answer.
+    to the LLM.
     """
 
     prompt = build_augmented_prompt(
@@ -168,19 +163,20 @@ def generate_rag_response(
 
 
 # ============================================================
-# Main
+# Main CLI
 # ============================================================
 
-if __name__ == "__main__":
+def main():
+
+    print("=" * 60)
+    print("🌾 Stardew Valley Assistant")
+    print("=" * 60)
 
     # Step 8: Receive question
     question = get_user_question()
 
-    print("\nQuestion received:")
-    print(question)
-
     # Step 9: Create question embedding
-    print("\nLoading embedding model...")
+    print("\n🔎 Searching knowledge base...")
 
     model = load_embedding_model()
 
@@ -189,73 +185,36 @@ if __name__ == "__main__":
         question
     )
 
-    print("Question embedding created!")
-
     # Connect to ChromaDB
     collection = get_collection()
 
-    print("\nChromaDB collection loaded.")
-
     # Step 10: Retrieve relevant chunks
-    print("\nSearching ChromaDB...")
-
     results = retrieve_chunks(
         collection,
         question_embedding,
         n_results=N_RESULTS
     )
 
-    print(
-        f"Retrieved {len(results['documents'][0])} chunks."
-    )
+    # Step 11 + Step 13:
+    # Build augmented prompt and generate response
+    print("🤖 Generating answer...")
 
-    # Display retrieved chunks
-    print("\nRetrieved chunks:")
-    print("=" * 60)
-
-    for i, document in enumerate(
-        results["documents"][0]
-    ):
-
-        distance = results["distances"][0][i]
-
-        print(
-            f"\nResult {i + 1}"
-        )
-
-        print("-" * 60)
-
-        print(
-            f"Distance: {distance:.4f}"
-        )
-
-        print(document)
-
-        print("\nMetadata:")
-
-        print(
-            results["metadatas"][0][i]
-        )
-
-    # Step 11: Build augmented prompt
-    prompt = build_augmented_prompt(
+    response = generate_rag_response(
         question,
         results
     )
 
-    print("\n\nAugmented Prompt:")
-    print("=" * 60)
-
-    print(prompt)
-
-    # Step 13: Generate final response
-    print("\n\nGenerating response...")
-
-    response = generate_response(
-        prompt
-    )
-
-    print("\nFinal Answer:")
-    print("=" * 60)
-
+    # Display final answer
+    print("\nAssistant:")
+    print("-" * 60)
     print(response)
+
+    print("\n" + "=" * 60)
+
+
+# ============================================================
+# Run Application
+# ============================================================
+
+if __name__ == "__main__":
+    main()
