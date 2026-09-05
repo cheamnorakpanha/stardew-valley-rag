@@ -1,2 +1,4 @@
 chromadb
 python-dotenv
+sentence-transformers
+tiktoken
