@@ -1,6 +1,7 @@
 import chromadb
 
 from embedding import load_embedding_model, create_embeddings
+from llm import generate_response
 
 
 # ============================================================
@@ -142,24 +143,43 @@ Answer:
 
 
 # ============================================================
+# Step 13: Generate Response
+# ============================================================
+
+def generate_rag_response(
+    question,
+    results
+):
+    """
+    Build the augmented prompt and send it
+    to the LLM to generate the final answer.
+    """
+
+    prompt = build_augmented_prompt(
+        question,
+        results
+    )
+
+    response = generate_response(
+        prompt
+    )
+
+    return response
+
+
+# ============================================================
 # Main
 # ============================================================
 
 if __name__ == "__main__":
 
-    # --------------------------------------------------------
     # Step 8: Receive question
-    # --------------------------------------------------------
-
     question = get_user_question()
 
     print("\nQuestion received:")
     print(question)
 
-    # --------------------------------------------------------
     # Step 9: Create question embedding
-    # --------------------------------------------------------
-
     print("\nLoading embedding model...")
 
     model = load_embedding_model()
@@ -171,18 +191,12 @@ if __name__ == "__main__":
 
     print("Question embedding created!")
 
-    # --------------------------------------------------------
     # Connect to ChromaDB
-    # --------------------------------------------------------
-
     collection = get_collection()
 
     print("\nChromaDB collection loaded.")
 
-    # --------------------------------------------------------
     # Step 10: Retrieve relevant chunks
-    # --------------------------------------------------------
-
     print("\nSearching ChromaDB...")
 
     results = retrieve_chunks(
@@ -195,10 +209,7 @@ if __name__ == "__main__":
         f"Retrieved {len(results['documents'][0])} chunks."
     )
 
-    # --------------------------------------------------------
     # Display retrieved chunks
-    # --------------------------------------------------------
-
     print("\nRetrieved chunks:")
     print("=" * 60)
 
@@ -226,10 +237,7 @@ if __name__ == "__main__":
             results["metadatas"][0][i]
         )
 
-    # --------------------------------------------------------
     # Step 11: Build augmented prompt
-    # --------------------------------------------------------
-
     prompt = build_augmented_prompt(
         question,
         results
@@ -239,3 +247,15 @@ if __name__ == "__main__":
     print("=" * 60)
 
     print(prompt)
+
+    # Step 13: Generate final response
+    print("\n\nGenerating response...")
+
+    response = generate_response(
+        prompt
+    )
+
+    print("\nFinal Answer:")
+    print("=" * 60)
+
+    print(response)
